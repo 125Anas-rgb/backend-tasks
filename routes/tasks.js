@@ -4,6 +4,7 @@ const express = require("express");
 
 const router = express.Router();
 
+//creating middleware to handle errors or invalid inputs
 const validate = require("../middleware/validate");
 
 let tasks = [
@@ -22,16 +23,12 @@ let tasks = [
 const findTask = function (reqId, res) {
   //we will find task by its id
   const task = tasks.find((task) => task.id === reqId);
-
-  //if task id doesnt exist
-  if (!task)
-    return res.status(404).json({
-      error: "Id not found",
-    });
+  return task;
 };
 
 router.get("/", (req, res) => {
   let filteredTasks = tasks;
+
   //first it checks if there exists a query
   if (req.query.completed) {
     //shows only completed tasks
@@ -39,20 +36,25 @@ router.get("/", (req, res) => {
       (task) => task.completed === (req.query.completed === "true"),
     );
   }
+  //sending resource response back in json
   res.json(filteredTasks);
 });
 
 //CRUD OPERATIONS
+
+let taskId = 3;
 
 //CREATE
 //Adding middleware validate in middle
 router.post("/", validate, (req, res) => {
   //creating new object
   const newTask = {
-    id: tasks.length + 1, //auto increses
+    id: taskId++, //auto increses
     title: req.body.title,
     completed: false, // by default
   };
+
+  //because sir if we delete an id the other id with higher number remains same and new id will continue the numbering of array like if we delete id 2 then new id would be 3 not 4..so duplicate ids would be produced
 
   //adding into object array
   tasks.push(newTask);
@@ -66,9 +68,14 @@ router.get("/:id", (req, res) => {
   //getting id from id parameter in route
   const reqId = Number(req.params.id);
 
-  findTask(reqId, res);
+  const task = findTask(reqId);
 
-  res.send(`Found User with ID ${reqId}`);
+  if (!task)
+    return res.status(404).json({
+      message: "Task Not Found",
+    });
+
+  res.status(200).json(task);
 });
 
 //UPDATE
@@ -77,27 +84,37 @@ router.put("/:id", validate, (req, res) => {
   //getting id from id parameter in route
   const reqId = Number(req.params.id);
 
-  findTask(reqId, res);
+  // finding task
+  const task = findTask(reqId);
 
-  //checks if there is title written in body
-  if (req.body.title) {
-    //getting new title from req body
-    id.title = req.body.title;
+  // if task doesn't exist
+  if (!task) {
+    return res.status(404).json({
+      error: "Task Not Found",
+    });
   }
 
-  //checks if there is compeletely written in body
-  //bcs its booolean so we write undefined..else false would not run
-  if (req.body.completed !== undefined) {
-    id.completed = req.body.completed;
+  if (req.body.title) task.title = req.body.title;
+  if (
+    req.body.completed !== undefined &&
+    typeof req.body.completed !== "boolean"
+  ) {
+    return res.status(400).json({
+      error: "completed must be a boolean (true or false)",
+    });
   }
-  res.json(id);
+  task.completed = req.body.completed;
+
+  res.status(200).json(task);
 });
 
 router.delete("/:id", (req, res) => {
   //getting id from id parameter in route
   const reqId = Number(req.params.id);
 
-  findTask(reqId, res);
+  const task = findTask(reqId);
+
+  if (!task) return res.status(404).json({ message: "task Not found" });
 
   tasks = tasks.filter((task) => task.id !== reqId);
 

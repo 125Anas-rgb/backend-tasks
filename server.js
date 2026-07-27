@@ -4,7 +4,6 @@ const express = require("express");
 //creates your server application object
 const app = express();
 
-//
 const logger = require("./middleware/logger");
 
 //loading mini app with its own logic (route)
@@ -14,15 +13,15 @@ const taskRouter = require("./routes/tasks");
 app.use(express.json());
 app.use(logger);
 
-//when url starts with api task, send the rest to this router
+//when url starts with api task (is a endpoint) or (route), send the rest to this router
+//
 app.use("/api/tasks", taskRouter);
 
 //setting port the server will run on
 const PORT = 5000;
 
 app.get("/", logger, (req, res) => {
-  res.send("Hey niga");
-  console.log("Welcome");
+  res.send("Hey there");
 });
 
 // app.get("/api/status", (req, res) => {

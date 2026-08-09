@@ -2,7 +2,7 @@
 const express = require("express");
 
 //loads prisma
-const prisma = require("../config/db");
+const prisma = require("./config/db");
 
 //creates your server application object
 const app = express();

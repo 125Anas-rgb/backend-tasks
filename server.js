@@ -1,6 +1,9 @@
 //loads express
 const express = require("express");
 
+//loads prisma
+const prisma = require("../config/db");
+
 //creates your server application object
 const app = express();
 
@@ -18,48 +21,24 @@ app.use(logger);
 app.use("/api/tasks", taskRouter);
 
 //setting port the server will run on
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 
 app.get("/", logger, (req, res) => {
   res.send("Hey there");
 });
 
-// app.get("/api/status", (req, res) => {
-//   res.json({
-//     status: "Server is running",
-//     success: true,
-//   });
-// });
+async function startServer() {
+  try {
+    await prisma.$connect();
 
-// app.get("/api/tasks", (req, res) => {
-//   const tasks = [
-//     {
-//       id: 1,
-//       title: "Learn Node.js",
-//       completed: false,
-//     },
+    console.log("Database connected successfully!");
 
-//     {
-//       id: 2,
-//       title: "Build Express API",
-//       completed: true,
-//     },
-//   ];
-//   res.json(tasks);
-// });
+    app.listen(PORT, () => {
+      console.log(`Server running on ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Database connection failed:", error);
+  }
+}
 
-// app.get("/api/tasks", (req, res) => {
-//   console.log(req.query);
-// });
-
-// app.post("/api/tasks", (req, res) => {
-//   //req.body means getting data
-//   const newTask = req.body;
-//   console.log(newTask);
-
-//   res.json({ message: "Task received", task: newTask });
-// });
-
-app.listen(PORT, () => {
-  console.log("Server running on 5000");
-});
+startServer();

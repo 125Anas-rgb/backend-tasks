@@ -1,9 +1,17 @@
-//small function that runs in between req and res
 const validate = (req, res, next) => {
-  //means if title dont exist {}
-  // 1. Check if title is missing
-  if (!req.body.title) {
-    return res.status(400).json({ error: "Title is Required" });
+  if (!req.body.title || typeof req.body.title !== "string") {
+    return res.status(400).json({
+      error: "Title is required and must be a string",
+    });
+  }
+
+  if (
+    req.body.description !== undefined &&
+    typeof req.body.description !== "string"
+  ) {
+    return res.status(400).json({
+      error: "Description must be a string",
+    });
   }
 
   next();

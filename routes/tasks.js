@@ -9,29 +9,14 @@ const prisma = require("../config/db");
 const validate = require("../middleware/validate");
 const validateU = require("../middleware/validateU");
 
-// let tasks = [
-//   {
-//     id: 1,
-//     title: "Learn Express",
-//     completed: false,
-//   },
-//   {
-//     id: 2,
-//     title: "Build CRUD API",
-//     completed: true,
-//   },
-// ];
-
-// const findTask = function (reqId, res) {
-//   //we will find task by its id
-//   const task = tasks.find((task) => task.id === reqId);
-//   return task;
-// };
-
 router.get("/", async (req, res) => {
   try {
     //refers to tasks
-    const where = {};
+    //creating empty js object
+    //where is req.body
+    const where = {
+      userId: req.user.userId,
+    };
 
     if (req.query.completed !== undefined) {
       where.completed = req.query.completed === "true";
@@ -53,25 +38,18 @@ router.get("/", async (req, res) => {
 
 //CRUD OPERATIONS
 
-// let taskId = 3;
-
 //CREATE
 //Adding middleware validate in middle
 router.post("/", validate, async (req, res) => {
-  //creating new object
-  // const newTask = {
-  //   id: taskId++, //auto increses
-  //   title: req.body.title,
-  //   completed: false, // by default
-  // };
-
   try {
     //create inserts a new row into task table
     const newTask = await prisma.task.create({
+      //data means Create a new row in the Task table using these values.
       data: {
         title: req.body.title.trim(),
         description: req.body.description,
         completed: false, // by default
+        userId: req.user.userId,
       },
     });
     res.status(201).json(newTask);
@@ -95,6 +73,7 @@ router.get("/:id", async (req, res) => {
       });
 
     const task = await prisma.task.findUnique({
+      //prisma API property where and data
       where: {
         id: reqId,
       },
@@ -102,6 +81,11 @@ router.get("/:id", async (req, res) => {
 
     if (!task) {
       return res.status(404).json({ message: "task Not found" });
+    }
+    if (task.userId !== req.user.userId) {
+      return res.status(403).json({
+        message: "You are not allowed to access this task",
+      });
     }
     res.status(200).json(task);
   } catch (error) {
@@ -121,7 +105,7 @@ router.put("/:id", validateU, async (req, res) => {
     const reqId = Number(req.params.id);
 
     if (Number.isNaN(reqId))
-      return res.status(404).json({
+      return res.status(400).json({
         error: "Invalid Task Id",
       });
 
@@ -138,6 +122,14 @@ router.put("/:id", validateU, async (req, res) => {
       });
     }
 
+    //authorize
+    if (task.userId !== req.user.userId) {
+      return res.status(403).json({
+        message: "You are not allowed to modify this task",
+      });
+    }
+
+    //empty object
     const data = {};
 
     if (req.body.title !== undefined) {
@@ -187,6 +179,13 @@ router.delete("/:id", async (req, res) => {
     });
 
     if (!task) return res.status(404).json({ message: "task Not found" });
+
+    //authorize
+    if (task.userId !== req.user.userId) {
+      return res.status(403).json({
+        message: "You are not allowed to delete this task",
+      });
+    }
 
     await prisma.task.delete({
       where: {

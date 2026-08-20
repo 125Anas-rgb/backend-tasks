@@ -1,4 +1,7 @@
 -- CreateTable
+
+--history of database changes.describe changes in db
+
 CREATE TABLE "Task" (
     "id" SERIAL NOT NULL,
     "title" TEXT NOT NULL,

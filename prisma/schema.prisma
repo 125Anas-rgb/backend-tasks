@@ -24,6 +24,14 @@ model User {
   name       String
   createdAt  DateTime @default(now())
 
+  isVerified               Boolean @default(false)
+  verificationToken        String?
+  verificationTokenExpires DateTime?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
+  refreshToken            String?
+  refreshTokenExpires     DateTime?
+
   tasks      Task[]
 }
 // last line means 1 user can have many tasks

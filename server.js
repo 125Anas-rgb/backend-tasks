@@ -18,6 +18,8 @@ const taskRouter = require("./routes/tasks");
 
 const authRoutes = require("./routes/auth");
 
+const path = require("path");
+
 //for text in json format
 app.use(express.json());
 app.use(logger);
@@ -26,6 +28,11 @@ app.use(logger);
 //
 app.use("/api/tasks", auth, taskRouter);
 app.use("/api/auth", authRoutes);
+
+//serve the files that are inside my uploads folder
+//path.join() creates a filesystem path to folder
+//__dirname is PS D:\Desktop\notes\backend\backend-tasks and after uploads it beocme /uploads at the end
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //setting port the server will run on
 const PORT = process.env.PORT || 5000;

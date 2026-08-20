@@ -264,6 +264,7 @@ router.post("/refresh-token", async (req, res) => {
       },
     );
 
+    //generates new refresh token so that old one cant be used again
     const newRefreshToken = crypto.randomBytes(32).toString("hex");
 
     const newRefreshTokenExpires = new Date(

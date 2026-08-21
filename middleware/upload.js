@@ -3,10 +3,21 @@ const multer = require("multer");
 //extract the ectension from the file
 const path = require("path");
 
+const fs = require("node:fs/promises");
+
 //creating storage configuration
 const storage = multer.diskStorage({
   //mutler saves the uploaded file
   destination: (req, file, cb) => {
+    //getting upload path
+    const uploadPath = path.join(__dirname, "../uploads");
+
+    // create folder if doesnt exist
+    fs.mkdir(uploadPath, { recursive: true }, (error) => {
+      if (error) {
+        return cb(error);
+      }
+    });
     //cb means callBack
     //mutler saves file in upload directory
     cb(null, "uploads/");

@@ -270,7 +270,7 @@ router.post(
           mimeType: attachment.mimeType,
           size: attachment.size,
           path: attachment.path,
-          url: `/uploads/${attachment.filename}`,
+          url: `/api/tasks/attachments/${attachment.id}/file`,
         },
       });
     } catch (error) {
@@ -294,8 +294,8 @@ router.get("/:id/attachments", auth, async (req, res) => {
     });
 
     if (!task) {
-      return res.status(403).json({
-        error: "Task not found or you do not own this task",
+      return res.status(404).json({
+        error: "Task not found",
       });
     }
 
@@ -330,6 +330,35 @@ router.get("/:id/attachments", auth, async (req, res) => {
   }
 });
 
+router.get("/attachments/:attachmentId/file", auth, async (req, res) => {
+  try {
+    const attachmentId = Number(req.params.attachmentId);
+
+    const attachment = await prisma.taskAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
+      });
+    }
+
+    const filePath = path.resolve(attachment.path);
+
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to access file",
+    });
+  }
+});
+
 router.delete("/:id/attachments/:attachmentId", auth, async (req, res) => {
   try {
     const taskId = Number(req.params.id);
@@ -347,8 +376,16 @@ router.delete("/:id/attachments/:attachmentId", auth, async (req, res) => {
       });
     }
 
-    //delets the file from computer
-    await fs.unlink(path.resolve(attachment.path));
+    const filePath = path.resolve(attachment.path);
+
+    try {
+      await fs.unlink(path.resolve(attachment.path));
+    } catch (error) {
+      //ENOENT means No such file or directory
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
 
     //deletes db record of that file
     await prisma.taskAttachment.delete({

@@ -32,7 +32,8 @@ model User {
   refreshToken            String?
   refreshTokenExpires     DateTime?
 
-  tasks      Task[]
+  tasks        Task[]
+  attachments  TaskAttachment[]
 }
 // last line means 1 user can have many tasks
 
@@ -45,6 +46,25 @@ model Task {
 
   userId      Int
   user        User @relation(fields : [userId] , references : [id])
+
+  attachments TaskAttachment[]
+}
+
+model TaskAttachment {
+  id            String  @id @default(uuid())
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int   
+  path          String
+
+  taskId        Int
+  userId        Int
+
+  task          Task @relation(fields :[taskId] , references : [id], onDelete: Cascade)
+  user          User @relation(fields :[userId] , references : [id], onDelete: Cascade)
+
+  createdAt  DateTime  @default(now())
 }
 
 // userId is foreign key in task table 

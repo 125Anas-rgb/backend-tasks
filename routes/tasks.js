@@ -8,6 +8,11 @@ const prisma = require("../config/db");
 //creating middleware to handle errors or invalid inputs
 const validate = require("../middleware/validate");
 const validateU = require("../middleware/validateU");
+const upload = require("../middleware/upload");
+const auth = require("../middleware/auth");
+const path = require("path");
+
+const fs = require("node:fs/promises");
 
 router.get("/", async (req, res) => {
   try {
@@ -201,6 +206,201 @@ router.delete("/:id", async (req, res) => {
 
     res.status(500).json({
       error: "Failed to delete task",
+    });
+  }
+});
+
+router.post(
+  "/:id/attachments",
+  auth,
+  (req, res, next) => {
+    //expects 1 file and form-data must be file
+    upload.single("file")(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({
+          error: err.message,
+        });
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    try {
+      //from parameter
+      const taskId = req.params.id;
+
+      //finds user
+      const task = await prisma.task.findFirst({
+        where: {
+          id: Number(taskId),
+          userId: req.user.userId,
+        },
+      });
+
+      if (!task) {
+        return res.status(403).json({
+          error: "Task not found or you do not own this task",
+        });
+      }
+      if (!req.file) {
+        return res.status(400).json({
+          error: "File is required",
+        });
+      }
+
+      //creating an attachment(if file is 1 and is valid)
+      const attachment = await prisma.taskAttachment.create({
+        data: {
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          size: req.file.size,
+          path: req.file.path,
+          taskId: Number(taskId),
+          userId: req.user.userId,
+        },
+      });
+
+      res.status(201).json({
+        message: "File uploaded successfully",
+        attachment: {
+          id: attachment.id,
+          filename: attachment.filename,
+          originalName: attachment.originalName,
+          mimeType: attachment.mimeType,
+          size: attachment.size,
+          path: attachment.path,
+          url: `/api/tasks/attachments/${attachment.id}/file`,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        error: "Failed to upload file",
+      });
+    }
+  },
+);
+
+router.get("/:id/attachments", auth, async (req, res) => {
+  try {
+    const taskId = req.params.id;
+
+    const task = await prisma.task.findFirst({
+      where: {
+        id: Number(taskId),
+        userId: req.user.userId,
+      },
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        error: "Task not found",
+      });
+    }
+
+    const attachments = await prisma.taskAttachment.findMany({
+      where: {
+        taskId: Number(taskId),
+        userId: req.user.userId,
+      },
+      //making newest items appear first
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (!attachments) {
+      return res.status(403).json({
+        error: "Attachment not found or you do not own this attachment",
+      });
+    }
+
+    const result = attachments.map((attachment) => ({
+      ...attachment,
+      url: `/uploads/${attachment.filename}`,
+    }));
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to fetch attachments",
+    });
+  }
+});
+
+router.get("/attachments/:attachmentId/file", auth, async (req, res) => {
+  try {
+    const attachmentId = Number(req.params.attachmentId);
+
+    const attachment = await prisma.taskAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        userId: req.user.userId,
+      },
+    });
+
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
+      });
+    }
+
+    const filePath = path.resolve(attachment.path);
+
+    res.sendFile(filePath);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      error: "Failed to access file",
+    });
+  }
+});
+
+router.delete("/:id/attachments/:attachmentId", auth, async (req, res) => {
+  try {
+    const taskId = Number(req.params.id);
+    const attachmentId = req.params.attachmentId;
+    const attachment = await prisma.taskAttachment.findFirst({
+      where: {
+        id: attachmentId,
+        taskId: Number(taskId),
+        userId: req.user.userId,
+      },
+    });
+    if (!attachment) {
+      return res.status(404).json({
+        error: "Attachment not found",
+      });
+    }
+
+    const filePath = path.resolve(attachment.path);
+
+    try {
+      await fs.unlink(path.resolve(attachment.path));
+    } catch (error) {
+      //ENOENT means No such file or directory
+      if (error.code !== "ENOENT") {
+        throw error;
+      }
+    }
+
+    //deletes db record of that file
+    await prisma.taskAttachment.delete({
+      where: {
+        id: attachmentId,
+      },
+    });
+
+    res.status(200).json({
+      message: "Attachment deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Failed to delete attachment",
     });
   }
 });

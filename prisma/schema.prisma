@@ -17,12 +17,23 @@ datasource db {
 //creates database table
 //No need to write Sql queries manually
 
+enum Tier {
+  FREE
+  PRO
+}
+
+enum Role {
+  VIEWER
+  EDITOR
+}
+
 model User {
   id         Int  @id @default(autoincrement())
   email      String @unique
   password   String
   name       String
   createdAt  DateTime @default(now())
+  tier       Tier @default(FREE)
 
   isVerified               Boolean @default(false)
   verificationToken        String?
@@ -34,6 +45,8 @@ model User {
 
   tasks        Task[]
   attachments  TaskAttachment[]
+  collaborations NoteCollaborator[]
+  favoriteNotes  UserFavoriteNote[]
 }
 // last line means 1 user can have many tasks
 
@@ -48,6 +61,9 @@ model Task {
   user        User @relation(fields : [userId] , references : [id])
 
   attachments TaskAttachment[]
+  collaborations NoteCollaborator[]
+  favoriteNotes  UserFavoriteNote[]
+
 }
 
 model TaskAttachment {
@@ -65,6 +81,31 @@ model TaskAttachment {
   user          User @relation(fields :[userId] , references : [id], onDelete: Cascade)
 
   createdAt  DateTime  @default(now())
+}
+
+model NoteCollaborator {
+  id            Int      @id @default(autoincrement())
+  taskId        Int   
+  userId        Int
+  role          Role
+
+  task         Task       @relation(fields :[taskId] , references : [id], onDelete: Cascade)
+  user          User      @relation(fields :[userId] , references : [id])
+
+  @@unique([taskId,userId])
+}
+
+model UserFavoriteNote {
+  id            Int      @id @default(autoincrement())
+  taskId        Int   
+  userId        Int
+  createdAt     DateTime  @default(now())
+
+  task         Task       @relation(fields :[taskId] , references : [id], onDelete: Cascade)
+  user          User      @relation(fields :[userId] , references : [id])
+
+  @@unique([taskId,userId])
+
 }
 
 // userId is foreign key in task table 

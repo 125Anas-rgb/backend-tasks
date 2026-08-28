@@ -12,40 +12,18 @@ const upload = require("../middleware/upload");
 const auth = require("../middleware/auth");
 const path = require("path");
 
+const { checkNotePermission } = require("../middleware/permission");
+const { checkNoteCreationQuota } = require("../middleware/tierGuard");
+const { checkFavoriteNoteQuota } = require("../middleware/tierGuard");
+
 const fs = require("node:fs/promises");
-
-router.get("/", async (req, res) => {
-  try {
-    //refers to tasks
-    //creating empty js object
-    //where is req.body
-    const where = {
-      userId: req.user.userId,
-    };
-
-    if (req.query.completed !== undefined) {
-      where.completed = req.query.completed === "true";
-    }
-
-    // findMany Give me multiple records from the Task table.
-    const tasks = await prisma.task.findMany({
-      where,
-    });
-    res.status(200).json(tasks);
-  } catch (error) {
-    console.log("Error fetching tasks", error);
-
-    res.status(500).json({
-      error: "Failed to fetch tasks",
-    });
-  }
-});
+const { error } = require("node:console");
 
 //CRUD OPERATIONS
 
 //CREATE
 //Adding middleware validate in middle
-router.post("/", validate, async (req, res) => {
+router.post("/", auth, checkNoteCreationQuota, validate, async (req, res) => {
   try {
     //create inserts a new row into task table
     const newTask = await prisma.task.create({
@@ -67,106 +45,148 @@ router.post("/", validate, async (req, res) => {
 });
 
 //READ
-router.get("/:id", async (req, res) => {
+router.get("/", auth, async (req, res) => {
   //getting id from id parameter in route
   try {
-    const reqId = Number(req.params.id);
-
-    if (Number.isNaN(reqId))
-      return res.status(400).json({
-        error: "Invalid Task ID",
-      });
-
-    const task = await prisma.task.findUnique({
-      //prisma API property where and data
+    console.log("GET /api/notes RUNNING");
+    const tasks = await prisma.task.findMany({
       where: {
-        id: reqId,
+        // deletedAt: null,
+        OR: [
+          {
+            userId: req.user.userId,
+          },
+          {
+            collaborations: {
+              some: {
+                userId: req.user.userId,
+              },
+            },
+          },
+        ],
+      },
+
+      include: {
+        collaborations: {
+          select: {
+            userId: true,
+            role: true,
+          },
+        },
+        favoriteNotes: {
+          where: {
+            userId: req.user.userId,
+          },
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+    console.log("Logged-in user:", req.user.userId);
+
+    const collaborations = await prisma.noteCollaborator.findMany({
+      where: {
+        userId: req.user.userId,
       },
     });
 
-    if (!task) {
-      return res.status(404).json({ message: "task Not found" });
-    }
-    if (task.userId !== req.user.userId) {
-      return res.status(403).json({
-        message: "You are not allowed to access this task",
-      });
-    }
-    res.status(200).json(task);
-  } catch (error) {
-    console.error("Error fetching task:", error);
+    console.log("My collaborations:", collaborations);
 
-    res.status(500).json({
-      error: "Failed to fetch task",
+    const tasksWithPermissions = tasks.map((task) => {
+      let userRole;
+
+      if (task.userId === req.user.userId) {
+        userRole = "OWNER";
+      } else {
+        const collaborator = task.collaborations.find(
+          (c) => c.userId === req.user.userId,
+        );
+
+        userRole = collaborator.role;
+      }
+
+      return {
+        ...task,
+        userRole,
+        isFavorite: task.favoriteNotes.length > 0,
+      };
+    });
+
+    return res.status(200).json(tasksWithPermissions);
+  } catch (error) {
+    console.error("Error fetching notes:", error);
+
+    return res.status(500).json({
+      error: "Failed to fetch notes",
     });
   }
 });
 
 //UPDATE
 //put means find existing resource and update it
-router.put("/:id", validateU, async (req, res) => {
-  //getting id from id parameter in route
-  try {
-    const reqId = Number(req.params.id);
+router.put(
+  "/:id",
+  auth,
+  checkNotePermission("EDITOR"),
+  validateU,
+  async (req, res) => {
+    //getting id from id parameter in route
+    try {
+      const reqId = Number(req.params.id);
 
-    if (Number.isNaN(reqId))
-      return res.status(400).json({
-        error: "Invalid Task Id",
+      if (Number.isNaN(reqId))
+        return res.status(400).json({
+          error: "Invalid Task Id",
+        });
+
+      const task = await prisma.task.findUnique({
+        where: {
+          id: reqId,
+        },
       });
 
-    const task = await prisma.task.findUnique({
-      where: {
-        id: reqId,
-      },
-    });
+      // if task doesn't exist
+      if (!task) {
+        return res.status(404).json({
+          error: "Task Not Found",
+        });
+      }
 
-    // if task doesn't exist
-    if (!task) {
-      return res.status(404).json({
-        error: "Task Not Found",
+      //empty object
+      const data = {};
+
+      if (req.body.title !== undefined) {
+        data.title = req.body.title.trim();
+      }
+
+      if (req.body.description !== undefined) {
+        data.description = req.body.description;
+      }
+
+      if (req.body.completed !== undefined) {
+        data.completed = req.body.completed;
+      }
+
+      const updatedTask = await prisma.task.update({
+        where: {
+          id: reqId,
+        },
+        data,
+      });
+
+      res.status(200).json(updatedTask);
+    } catch (error) {
+      console.error("Error fetching task:", error);
+
+      res.status(500).json({
+        error: "Failed to fetch task",
       });
     }
+  },
+);
 
-    //authorize
-    if (task.userId !== req.user.userId) {
-      return res.status(403).json({
-        message: "You are not allowed to modify this task",
-      });
-    }
-
-    //empty object
-    const data = {};
-
-    if (req.body.title !== undefined) {
-      data.title = req.body.title.trim();
-    }
-
-    if (req.body.description !== undefined) {
-      data.description = req.body.description;
-    }
-
-    if (req.body.completed !== undefined) {
-      data.completed = req.body.completed;
-    }
-
-    const updatedTask = await prisma.task.update({
-      where: {
-        id: reqId,
-      },
-      data,
-    });
-
-    res.status(200).json(updatedTask);
-  } catch (error) {
-    console.error("Error fetching task:", error);
-
-    res.status(500).json({
-      error: "Failed to fetch task",
-    });
-  }
-});
-
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, checkNotePermission("OWNER"), async (req, res) => {
   //getting id from id parameter in route
   try {
     const reqId = Number(req.params.id);
@@ -185,13 +205,6 @@ router.delete("/:id", async (req, res) => {
 
     if (!task) return res.status(404).json({ message: "task Not found" });
 
-    //authorize
-    if (task.userId !== req.user.userId) {
-      return res.status(403).json({
-        message: "You are not allowed to delete this task",
-      });
-    }
-
     await prisma.task.delete({
       where: {
         id: reqId,
@@ -202,10 +215,126 @@ router.delete("/:id", async (req, res) => {
       message: "Task deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting task:", error);
-
     res.status(500).json({
       error: "Failed to delete task",
+    });
+  }
+});
+
+router.post(
+  "/:id/favorite",
+  auth,
+  checkNotePermission("VIEWER"),
+  checkFavoriteNoteQuota,
+  async (req, res) => {
+    try {
+      const taskId = Number(req.params.id);
+
+      if (Number.isNaN(taskId)) {
+        return res.status(400).json({
+          error: "Invalid task ID",
+        });
+      }
+
+      const task = await prisma.task.findUnique({
+        where: {
+          id: taskId,
+        },
+      });
+      if (!task) return res.status(404).json({ message: "task Not found" });
+
+      const existingFavorite = await prisma.userFavoriteNote.findUnique({
+        where: {
+          taskId_userId: {
+            userId: req.user.userId,
+            taskId,
+          },
+        },
+      });
+
+      if (existingFavorite) {
+        return res.status(400).json({
+          error: "Task already exists in favorites",
+        });
+      }
+
+      const favorite = await prisma.userFavoriteNote.create({
+        data: {
+          taskId,
+          userId: req.user.userId,
+        },
+      });
+
+      return res.status(201).json({
+        message: "Task added to favorites",
+        favorite,
+      });
+    } catch (error) {
+      console.error("FAVORITE ERROR:", error);
+      res.status(500).json({
+        error: "Failed to add task to favorites",
+      });
+    }
+  },
+);
+
+router.get("/favorites", auth, async (req, res) => {
+  try {
+    const favorites = await prisma.userFavoriteNote.findMany({
+      where: {
+        userId: req.user.userId,
+        task: {
+          deletedAt: null,
+        },
+      },
+      include: {
+        task: true,
+      },
+    });
+    return res.status(200).json(favorites);
+  } catch {
+    res.status(500).json({
+      error: "Failed to get favorite tasks",
+    });
+  }
+});
+
+router.delete("/:id/favorite", auth, async (req, res) => {
+  try {
+    const taskId = Number(req.params.id);
+
+    if (Number.isNaN(taskId)) {
+      return res.status(400).json({
+        error: "Invalid task ID",
+      });
+    }
+
+    const favoriteTask = await prisma.userFavoriteNote.findUnique({
+      where: {
+        taskId_userId: {
+          userId: req.user.userId,
+          taskId,
+        },
+      },
+    });
+    if (!favoriteTask)
+      return res.status(404).json({ message: "task Not found" });
+
+    await prisma.userFavoriteNote.delete({
+      where: {
+        taskId_userId: {
+          userId: req.user.userId,
+          taskId,
+        },
+      },
+    });
+    return res.status(200).json({
+      message: "Task removed from favorites",
+    });
+  } catch (error) {
+    console.error("FAVORITE ERROR:", error);
+    res.status(500).json({
+      error: "Failed to delete task from favorites",
     });
   }
 });
@@ -274,7 +403,6 @@ router.post(
         },
       });
     } catch (error) {
-      console.error(error);
       res.status(500).json({
         error: "Failed to upload file",
       });
@@ -323,7 +451,6 @@ router.get("/:id/attachments", auth, async (req, res) => {
 
     res.status(200).json(result);
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       error: "Failed to fetch attachments",
     });
@@ -351,8 +478,6 @@ router.get("/attachments/:attachmentId/file", auth, async (req, res) => {
 
     res.sendFile(filePath);
   } catch (error) {
-    console.error(error);
-
     res.status(500).json({
       error: "Failed to access file",
     });
@@ -379,7 +504,7 @@ router.delete("/:id/attachments/:attachmentId", auth, async (req, res) => {
     const filePath = path.resolve(attachment.path);
 
     try {
-      await fs.unlink(path.resolve(attachment.path));
+      await fs.unlink(filePath);
     } catch (error) {
       //ENOENT means No such file or directory
       if (error.code !== "ENOENT") {
@@ -398,7 +523,6 @@ router.delete("/:id/attachments/:attachmentId", auth, async (req, res) => {
       message: "Attachment deleted successfully",
     });
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       error: "Failed to delete attachment",
     });

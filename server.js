@@ -18,6 +18,8 @@ const taskRouter = require("./routes/tasks");
 
 const authRoutes = require("./routes/auth");
 
+const collaboratorRoute = require("./routes/collaboration");
+
 const path = require("path");
 
 //for text in json format
@@ -28,7 +30,7 @@ app.use(logger);
 //
 app.use("/api/tasks", auth, taskRouter);
 app.use("/api/auth", authRoutes);
-
+app.use("/api/notes", collaboratorRoute);
 //serve the files that are inside my uploads folder
 //path.join() creates a filesystem path to folder
 //__dirname is PS D:\Desktop\notes\backend\backend-tasks and after uploads it beocme /uploads at the end

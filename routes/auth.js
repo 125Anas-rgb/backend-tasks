@@ -9,9 +9,6 @@ const sendEmail = require("../utils/sendEmail");
 const router = express.Router();
 
 const prisma = require("../config/db");
-const { json } = require("stream/consumers");
-const { use } = require("react");
-const { route } = require("./auth");
 const auth = require("../middleware/auth");
 
 // const verificationToken = {
@@ -90,6 +87,7 @@ router.post("/register", async (req, res) => {
         email,
         password: hashedPassword,
         name,
+        tier,
         verificationToken: hashToken,
         verificationTokenExpires,
       },
@@ -176,6 +174,7 @@ router.post("/login", async (req, res) => {
       {
         userId: user.id,
         email: user.email,
+        tier: user.tier,
       },
       // signature (secret key) keeping in env
       //takes encoded version of header,payload and secret key and the algorithm from header to create a signature (last portion)

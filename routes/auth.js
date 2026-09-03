@@ -87,7 +87,6 @@ router.post("/register", async (req, res) => {
         email,
         password: hashedPassword,
         name,
-        tier,
         verificationToken: hashToken,
         verificationTokenExpires,
       },
@@ -259,7 +258,7 @@ router.post("/refresh-token", async (req, res) => {
       process.env.JWT_SECRET,
       //becomes invalid after 15 mints
       {
-        expiresIn: "15m",
+        expiresIn: "35m",
       },
     );
 

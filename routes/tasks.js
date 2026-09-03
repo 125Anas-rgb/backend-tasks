@@ -48,7 +48,6 @@ router.post("/", auth, checkNoteCreationQuota, validate, async (req, res) => {
 router.get("/", auth, async (req, res) => {
   //getting id from id parameter in route
   try {
-    console.log("GET /api/notes RUNNING");
     const tasks = await prisma.task.findMany({
       where: {
         // deletedAt: null,
@@ -283,17 +282,16 @@ router.get("/favorites", auth, async (req, res) => {
     const favorites = await prisma.userFavoriteNote.findMany({
       where: {
         userId: req.user.userId,
-        task: {
-          deletedAt: null,
-        },
       },
       include: {
         task: true,
       },
     });
     return res.status(200).json(favorites);
-  } catch {
+  } catch (error) {
+    console.error(error)
     res.status(500).json({
+
       error: "Failed to get favorite tasks",
     });
   }
@@ -399,7 +397,7 @@ router.post(
           mimeType: attachment.mimeType,
           size: attachment.size,
           path: attachment.path,
-          url: `/api/tasks/attachments/${attachment.id}/file`,
+          url: `/uploads/${attachment.filename}`,
         },
       });
     } catch (error) {
@@ -459,7 +457,8 @@ router.get("/:id/attachments", auth, async (req, res) => {
 
 router.get("/attachments/:attachmentId/file", auth, async (req, res) => {
   try {
-    const attachmentId = Number(req.params.attachmentId);
+    const attachmentId = req.params.attachmentId;
+    console.log(attachmentId)
 
     const attachment = await prisma.taskAttachment.findFirst({
       where: {
@@ -467,16 +466,17 @@ router.get("/attachments/:attachmentId/file", auth, async (req, res) => {
         userId: req.user.userId,
       },
     });
+    console.log(attachment)
 
     if (!attachment) {
       return res.status(404).json({
         error: "Attachment not found",
       });
     }
-
-    const filePath = path.resolve(attachment.path);
-
+    const filePath = path.join(__dirname, "..", "uploads", attachment.filename);
+    console.log("Trying to send:", filePath);
     res.sendFile(filePath);
+
   } catch (error) {
     res.status(500).json({
       error: "Failed to access file",
@@ -501,7 +501,7 @@ router.delete("/:id/attachments/:attachmentId", auth, async (req, res) => {
       });
     }
 
-    const filePath = path.resolve(attachment.path);
+    const filePath = path.resolve(attachment.filename);
 
     try {
       await fs.unlink(filePath);

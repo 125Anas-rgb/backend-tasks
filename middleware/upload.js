@@ -8,19 +8,16 @@ const fs = require("node:fs/promises");
 //creating storage configuration
 const storage = multer.diskStorage({
   //mutler saves the uploaded file
-  destination: (req, file, cb) => {
+  destination: async (req, file, cb) => {
     //getting upload path
-    const uploadPath = path.join(__dirname, "../uploads");
-
-    // create folder if doesnt exist
-    fs.mkdir(uploadPath, { recursive: true }, (error) => {
-      if (error) {
-        return cb(error);
-      }
-    });
-    //cb means callBack
-    //mutler saves file in upload directory
-    cb(null, "uploads/");
+    //__dirname is PS D:\Desktop\notes\backend\backend-tasks and after uploads it beocme \uploads at the end
+    try {
+      const uploadPath = path.join(__dirname, "..", "uploads");
+      await fs.mkdir(uploadPath, { recursive: true });
+      cb(null, uploadPath);
+    } catch (error) {
+      cb(error);
+    }
   },
 
   filename: (req, file, cb) => {
@@ -38,6 +35,8 @@ const storage = multer.diskStorage({
 
 //function that tells wether file should be accepted or rejected
 const fileFilter = (req, file, cb) => {
+  console.log("Uploaded file:", file.originalname, file.mimetype);
+
   const allowedTypes = ["image/png", "image/jpeg", "application/pdf"];
 
   //if file mimetype have any allowedtypes

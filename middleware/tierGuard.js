@@ -18,7 +18,7 @@ const checkNoteCreationQuota = async (req, res, next) => {
     });
     console.log(noteCount);
 
-    if (noteCount > 10) {
+    if (noteCount >= 10) {
       return res.status(403).json({
         error:
           "Free tier limit reached (10 notes max). Upgrade to Pro for unlimited notes",

@@ -35,7 +35,6 @@ const storage = multer.diskStorage({
 
 //function that tells wether file should be accepted or rejected
 const fileFilter = (req, file, cb) => {
-  console.log("Uploaded file:", file.originalname, file.mimetype);
 
   const allowedTypes = ["image/png", "image/jpeg", "application/pdf"];
 

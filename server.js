@@ -6,6 +6,8 @@ const express = require("express");
 //loads prisma
 const prisma = require("./config/db");
 
+const handleStripeWebhook = require("./controllers/paymentwebhook");
+
 //creates your server application object
 const app = express();
 
@@ -18,9 +20,19 @@ const taskRouter = require("./routes/tasks");
 
 const authRoutes = require("./routes/auth");
 
+const paymentRoute = require('./routes/payment')
+
 const collaboratorRoute = require("./routes/collaboration");
 
 const path = require("path");
+
+//stripe signature requires original bytes
+app.post(
+  '/api/payments/webhook',
+  express.raw({ type: 'application/json' }),
+  handleStripeWebhook
+);
+
 
 //for text in json format
 app.use(express.json());
@@ -31,6 +43,7 @@ app.use(logger);
 app.use("/api/tasks", auth, taskRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/tasks", collaboratorRoute);
+app.use('/api/payments', paymentRoute)
 //serve the files that are inside my uploads folder
 //path.join() creates a filesystem path to folder
 //__dirname is PS D:\Desktop\notes\backend\backend-tasks and after uploads it beocme /uploads at the end

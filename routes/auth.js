@@ -258,7 +258,7 @@ router.post("/refresh-token", async (req, res) => {
       process.env.JWT_SECRET,
       //becomes invalid after 15 mints
       {
-        expiresIn: "35m",
+        expiresIn: "15m",
       },
     );
 

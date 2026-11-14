@@ -39,3 +39,9 @@ Implemented task collaboration, role-based permissions, user tiers, quotas, and 
 
 - Updated task listing to return `userRole` and `isFavorite`.
 - Restricted task updates/deletions based on collaborator permissions.
+
+Fixes
+
+Implemented Collaborators permissions on Task Attachments
+
+Improved Stripe webhook handling by adding signature verification, duplicate event protection, subscription status validation, and proper handling of subscription updates, cancellations, and failed payments.

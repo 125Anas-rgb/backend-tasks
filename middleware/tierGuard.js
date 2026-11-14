@@ -1,10 +1,22 @@
 const prisma = require("../config/db");
 
+const getCurrentTier = async (userId) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { tier: true },
+  });
+
+  return user?.tier ?? null;
+};
+
 //Can own max 10 active notes
 const checkNoteCreationQuota = async (req, res, next) => {
   try {
-    //checks if user is PRO
-    if (req.user.tier !== "FREE") {
+    const tier = await getCurrentTier(req.user.userId);
+    if (tier === null) {
+      return res.status(401).json({ error: "User not found" });
+    }
+    if (tier !== "FREE") {
       return next();
     }
     console.log("free");
@@ -36,7 +48,11 @@ const checkNoteCreationQuota = async (req, res, next) => {
 //Each note can have max 2 collaborators
 const checkCollaboratorQuota = async (req, res, next) => {
   try {
-    if (req.user.tier !== "FREE") {
+    const tier = await getCurrentTier(req.user.userId);
+    if (tier === null) {
+      return res.status(401).json({ error: "User not found" });
+    }
+    if (tier !== "FREE") {
       return next();
     }
 
@@ -64,7 +80,11 @@ const checkCollaboratorQuota = async (req, res, next) => {
 
 const checkFavoriteNoteQuota = async (req, res, next) => {
   try {
-    if (req.user.tier !== "FREE") {
+    const tier = await getCurrentTier(req.user.userId);
+    if (tier === null) {
+      return res.status(401).json({ error: "User not found" });
+    }
+    if (tier !== "FREE") {
       return next();
     }
 

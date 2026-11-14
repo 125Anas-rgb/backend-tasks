@@ -47,12 +47,19 @@ model User {
   stripeSubscriptionId    String? @unique 
   stripePriceId           String?
   stripeCurrentPeriodEnd  DateTime? 
+  lastStripeEventCreated  BigInt?
 
   tasks        Task[]
   attachments  TaskAttachment[]
   collaborations NoteCollaborator[]
   favoriteNotes  UserFavoriteNote[]
 }
+
+model StripeWebhookEvent {
+  id          String   @id
+  processedAt DateTime @default(now())
+}
+
 // last line means 1 user can have many tasks
 
 model Task {

@@ -45,9 +45,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/tasks", collaboratorRoute);
 app.use('/api/payments', paymentRoute)
 //serve the files that are inside my uploads folder
-//path.join() creates a filesystem path to folder
-//__dirname is PS D:\Desktop\notes\backend\backend-tasks and after uploads it beocme /uploads at the end
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 //setting port the server will run on
 const PORT = process.env.PORT || 5000;
